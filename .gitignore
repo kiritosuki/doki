@@ -1,0 +1,62 @@
+# === Go ===
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+
+# go modules cache
+/pkg/mod/
+/pkg/sumdb/
+
+
+# Coverage
+coverage.out
+
+
+# === IDE ===
+# VSCode
+.vscode/
+
+
+# JetBrains / GoLand
+.idea/
+*.iml
+out/
+
+
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+# Thumbnails
+._*
+
+
+# === Linux ===
+*~
+
+
+# === Containers / runtime ===
+# 如果 doki 将来会产生 runtime 目录，可忽略
+run/
+rootfs/
+container_tmp/
+
+
+# Logs
+*.log
+
+
+# === Misc ===
+*.swp
+*.swo
+.env
