@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kiritosuki/doki/internal/app"
+	"github.com/kiritosuki/doki/internal/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
