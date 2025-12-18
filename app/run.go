@@ -3,8 +3,11 @@ package app
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 
+	"github.com/creack/pty"
 	"github.com/kiritosuki/doki/internal/container"
 	"github.com/spf13/cobra"
 )
@@ -52,16 +55,52 @@ func runRun(args []string) error {
 	fmt.Printf("处理镜像...image: %s\n", image)
 	// 获取容器进程对象 cmd
 	cmd := container.NewContainerProcess(command, commandArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 
 	// 处理选项
-	if runFlags.interactiveFlag {
-		cmd.Stdin = os.Stdin
-	}
-	err := cmd.Start()
+	runner, err := processRunFlags(cmd)
 	if err != nil {
 		return err
 	}
-	return cmd.Wait()
+	return runner()
+}
+
+func processRunFlags(cmd *exec.Cmd) (func() error, error) {
+	// -t 处理
+	if runFlags.ttyFlag {
+		// 子进程作为新的会话
+		cmd.SysProcAttr.Setsid = true
+		// 给子进程分配 tty
+		cmd.SysProcAttr.Setctty = true
+
+		return func() error {
+			// 新分配一对 pty 把新的 pty slave 作为 cmd 的控制终端
+			// 返回 pty master 即 ptmx
+			// 通信方式可以这么理解:
+			// doki - pty master - pty slave - bash
+			ptmx, err := pty.Start(cmd)
+			if err != nil {
+				return err
+			}
+			defer ptmx.Close()
+			// 这里 pty master 复制输入输出 都是阻塞操作 必须要用协程
+			go func() { io.Copy(ptmx, os.Stdin) }()
+			go func() { io.Copy(os.Stdout, ptmx) }()
+			return cmd.Wait()
+		}, nil
+	}
+
+	// -i 处理
+	if runFlags.interactiveFlag {
+		cmd.Stdin = os.Stdin
+	}
+
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	return func() error {
+		err := cmd.Start()
+		if err != nil {
+			return err
+		}
+		return cmd.Wait()
+	}, nil
 }
