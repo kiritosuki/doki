@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -36,19 +37,12 @@ func runInit() error {
 		return err
 	}
 	readPipe := os.NewFile(uintptr(3), "readPipe")
+	defer readPipe.Close()
 	// 这里用 io 包的 readAll 函数 不用自己写循环 可以确保读完
 	// 但是 io 包没有对应的 writeALl 函数
 	bytes, err := io.ReadAll(readPipe)
 	if err != nil {
 		// 报错关闭 fd 资源
-		readPipe.Close()
-		return err
-	}
-	// 不用 defer 关闭 原因是 defer 理论上在 syscall.Exec 之后执行
-	// 但 syscall.Exec 执行成功后 go runtime 会被整个替换掉
-	// fd.close 也不复存在 也没有机会执行 写 defer 无意义
-	err = readPipe.Close()
-	if err != nil {
 		return err
 	}
 	var initArgs InitArgs
@@ -58,9 +52,14 @@ func runInit() error {
 		return err
 	}
 	command := initArgs.Command
-	// syscall.Exec 是最底层的执行函数
-	// 会把要执行的命令替换当前进程
-	// 要求 args[0] == command
-	args := append([]string{command}, initArgs.Args...)
-	return syscall.Exec(command, args, os.Environ())
+	args := initArgs.Args
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+	return cmd.Wait()
 }

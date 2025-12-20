@@ -15,10 +15,8 @@ func NewContainerProcess() (*exec.Cmd, *os.File) {
 		log.Errorf("pipe error: %v", err)
 		return nil, nil
 	}
-	//args := append([]string{"init", command}, commandArgs...)
 	// 准备 cmd
 	// /proc/self/exe 相当于在执行自身 即在 doki 进程内执行 doki 命令 创建新进程
-	//cmd := exec.Command("/proc/self/exe", args...)
 	cmd := exec.Command("/proc/self/exe", "init")
 	// 做隔离
 	cmd.SysProcAttr = &syscall.SysProcAttr{

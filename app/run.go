@@ -54,7 +54,7 @@ func runRun(args []string) error {
 	}
 	// TODO 处理镜像
 	fmt.Printf("处理镜像...image: %s\n", image)
-	// 获取容器进程对象 cmd
+	// 获取容器 init 进程对象 cmd
 	cmd, writePipe := container.NewContainerProcess()
 
 	// 处理选项
