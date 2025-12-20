@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -54,17 +55,21 @@ func runRun(args []string) error {
 	// TODO 处理镜像
 	fmt.Printf("处理镜像...image: %s\n", image)
 	// 获取容器进程对象 cmd
-	cmd := container.NewContainerProcess(command, commandArgs...)
+	cmd, writePipe := container.NewContainerProcess()
 
 	// 处理选项
-	runner, err := processRunFlags(cmd)
+	// 这里父进程向匿名管道写入数据 虽然匿名管道有缓冲区 但缓冲区一旦被占满就会进程阻塞
+	// 如果此时子进程没有启动 就无法从匿名管道里读取数据 就会一直阻塞
+	// 所以需要保证父进程向匿名管道写入数据的时机为 子进程启动之后
+	runner, err := processRunFlags(cmd, writePipe, command, commandArgs)
 	if err != nil {
 		return err
 	}
 	return runner()
 }
 
-func processRunFlags(cmd *exec.Cmd) (func() error, error) {
+// processRunFlags 用于处理选项 返回最终执行对象
+func processRunFlags(cmd *exec.Cmd, writePipe *os.File, command string, commandArgs []string) (func() error, error) {
 	// -t 处理
 	if runFlags.ttyFlag {
 		// 子进程作为新的会话
@@ -85,6 +90,11 @@ func processRunFlags(cmd *exec.Cmd) (func() error, error) {
 			// 这里 pty master 复制输入输出 都是阻塞操作 必须要用协程
 			go func() { io.Copy(ptmx, os.Stdin) }()
 			go func() { io.Copy(os.Stdout, ptmx) }()
+			// 向匿名管道发送参数
+			err = sendPipeArgs(writePipe, command, commandArgs)
+			if err != nil {
+				return err
+			}
 			return cmd.Wait()
 		}, nil
 	}
@@ -101,6 +111,33 @@ func processRunFlags(cmd *exec.Cmd) (func() error, error) {
 		if err != nil {
 			return err
 		}
+		err = sendPipeArgs(writePipe, command, commandArgs)
+		if err != nil {
+			return err
+		}
 		return cmd.Wait()
 	}, nil
+}
+
+// sendPipeArgs 用于父进程向匿名管道发送参数
+func sendPipeArgs(writePipe *os.File, command string, commandArgs []string) error {
+	defer writePipe.Close()
+	initArgs := container.InitArgs{
+		Command: command,
+		Args:    commandArgs,
+	}
+	initArgsBytes, err := json.Marshal(initArgs)
+	if err != nil {
+		return err
+	}
+	// 循环写入
+	for len(initArgsBytes) > 0 {
+		length, err := writePipe.Write(initArgsBytes)
+		if err != nil {
+			return err
+		}
+		initArgsBytes = initArgsBytes[length:]
+	}
+
+	return nil
 }
