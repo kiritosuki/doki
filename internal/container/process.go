@@ -1,10 +1,11 @@
 package container
 
 import (
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // NewContainerProcess 创建容器进程
@@ -26,6 +27,7 @@ func NewContainerProcess() (*exec.Cmd, *os.File) {
 			syscall.CLONE_NEWNET | // 网络隔离
 			syscall.CLONE_NEWIPC, // 进程间通信隔离
 		// TODO 用户隔离 暂时还没做 目标是实现 rootless
+
 	}
 	cmd.ExtraFiles = []*os.File{readPipe}
 	return cmd, writePipe

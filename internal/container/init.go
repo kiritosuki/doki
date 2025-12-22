@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"syscall"
 
+	"github.com/creack/pty"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,31 @@ func runInit() error {
 	}
 	command := initArgs.Command
 	args := initArgs.Args
+	// 用户进程对象 cmd
 	cmd := exec.Command(command, args...)
+	enableTty := initArgs.EnableTty
+
+	// -t 单独处理
+	if enableTty {
+		// 给用户进程如 bash 进程单独分配 pty
+		// pty.start 内部会实现:
+		// 把用户进程作为新的 session 的 leader
+		// 把该 pty 作为控制终端
+		// 把用户进程设置为前台进程组的 leader
+		ptmx, err := pty.Start(cmd)
+		if err != nil {
+			return err
+		}
+		defer ptmx.Close()
+		// 将 pty 的 IO 通路与 init 进程的 IO通路连通
+		// pty master 的辅助输入输出是阻塞操作 必须用协程
+		go func() { io.Copy(ptmx, os.Stdin) }()
+		go func() { io.Copy(os.Stdout, ptmx) }()
+
+		return cmd.Wait()
+	}
+
+	// 其余情况 将用户进程的 IO 通路与 init 进程连通
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
