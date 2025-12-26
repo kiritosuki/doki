@@ -76,7 +76,6 @@ func processRunFlags(cmd *exec.Cmd, writePipe *os.File, command string, commandA
 		cmd.Stdin = os.Stdin
 	}
 
-	// -t 处理 tty 的细节处理通过管道发送到 init 进程处理
 	return func() error {
 		err := cmd.Start()
 		if err != nil {
