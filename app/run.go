@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
-	"syscall"
 
 	"github.com/kiritosuki/doki/internal/container"
 	"github.com/spf13/cobra"
@@ -76,11 +74,6 @@ func processRunFlags(cmd *exec.Cmd, writePipe *os.File, command string, commandA
 	// -i / -t 处理 将终端输入与 init 进程输入 IO 连通
 	if runFlags.interactiveFlag || runFlags.ttyFlag {
 		cmd.Stdin = os.Stdin
-	}
-
-	// -t 处理 外层 tty 忽略信号 传给内层 pty 处理
-	if runFlags.ttyFlag {
-		signal.Ignore(syscall.SIGINT, syscall.SIGQUIT)
 	}
 
 	// -t 处理 tty 的细节处理通过管道发送到 init 进程处理
