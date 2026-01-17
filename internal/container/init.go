@@ -40,7 +40,7 @@ func runInit() error {
 	readPipe := os.NewFile(uintptr(3), "readPipe")
 	defer readPipe.Close()
 	// 这里用 io 包的 readAll 函数 不用自己写循环 可以确保读完
-	// 但是 io 包没有对应的 writeALl 函数
+	// 但是 io 包没有对应的 writeAll 函数
 	bytes, err := io.ReadAll(readPipe)
 	if err != nil {
 		// 报错关闭 fd 资源
@@ -58,6 +58,7 @@ func runInit() error {
 	cmd := exec.Command(command, args...)
 	enableTty := initArgs.EnableTty
 
+	// 处理 tty 逻辑
 	if enableTty {
 		log.Info("TODO: 处理 tty 逻辑")
 	}

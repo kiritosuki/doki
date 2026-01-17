@@ -14,6 +14,9 @@ import (
 type RunOpts struct {
 	interactiveFlag bool
 	ttyFlag         bool
+	memoryFlag      string
+	cpusFlag        float64
+	cpusetFlag      string
 }
 
 var runFlags = &RunOpts{}
@@ -31,6 +34,9 @@ var runCmd = &cobra.Command{
 func init() {
 	runCmd.Flags().BoolVarP(&runFlags.interactiveFlag, "interactive", "i", false, "open stdin")
 	runCmd.Flags().BoolVarP(&runFlags.ttyFlag, "tty", "t", false, "allocate a tty")
+	runCmd.Flags().StringVarP(&runFlags.memoryFlag, "memory", "m", "", "set memory limit")
+	runCmd.Flags().Float64VarP(&runFlags.cpusFlag, "cpus", "c", 0, "set cpu limit")
+	runCmd.Flags().StringVarP(&runFlags.cpusetFlag, "cpuset", "C", "", "allocate allowed cpus")
 }
 
 // runRun 是 run 命令的核心实现函数
@@ -74,6 +80,19 @@ func processRunFlags(cmd *exec.Cmd, writePipe *os.File, command string, commandA
 	// -i / -t 处理 将终端输入与 init 进程输入 IO 连通
 	if runFlags.interactiveFlag || runFlags.ttyFlag {
 		cmd.Stdin = os.Stdin
+	}
+
+	// 处理资源控制逻辑
+	resource := &container.ResourceConfig{
+		Memory: runFlags.memoryFlag,
+		Cpus:   runFlags.cpusFlag,
+		Cpuset: runFlags.cpusetFlag,
+	}
+	if resource.Enabled() {
+		err := container.EnableControllers()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return func() error {
